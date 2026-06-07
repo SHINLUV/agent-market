@@ -1,0 +1,14 @@
+.env
+.vercel
+__pycache__/
+*.pyc
+*.db
+server.log
+*.bak
+.DS_Store
+.playwright-cli/
+agents/.playwright-cli/
+*.png
+*.jpg
+api_test.txt
+hermes-handoff.md

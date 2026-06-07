@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>檀枫 AI 工具箱</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="aurora-bg" id="auroraBg">
+  <div class="aurora-orb orb-1"></div>
+  <div class="aurora-orb orb-2"></div>
+  <div class="aurora-orb orb-3"></div>
+  <div class="star-field" id="starField"></div>
+</div>
+
+<header class="header">
+  <div class="header-inner">
+    <a href="#" class="logo">
+      <span class="logo-mark">
+        <img src="logo.svg" alt="檀枫" class="logo-icon">
+      </span>
+      <span class="logo-text">檀枫</span>
+      <span class="logo-sub">AI 工具箱</span>
+    </a>
+    <div class="search-wrap">
+      <span class="search-icon">&#8981;</span>
+      <input type="text" id="searchInput" placeholder="搜索 Agent...">
+    </div>
+  </div>
+</header>
+
+<section class="hero" id="heroSection">
+  <div class="hero-glow" id="heroGlow"></div>
+  <div class="hero-content">
+    <h1>檀枫 AI <span>工具箱</span></h1>
+    <p class="subtitle">电商卖家的 AI Agent，打开网页就能用</p>
+    <div class="hero-stats">
+      <div class="stat-item">
+        <span class="stat-num" id="agentCount">0</span>
+        <span class="stat-label">实用工具</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num">免费</span>
+        <span class="stat-label">无限使用</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num">0 配置</span>
+        <span class="stat-label">即开即用</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="filters">
+  <div class="filter-tags" id="filterTags">
+    <button class="tag tag-active" data-category="all">全部</button>
+  </div>
+</section>
+
+<main class="main" id="agents">
+  <div class="agent-grid" id="agentGrid"></div>
+  <div class="empty-state" id="emptyState">
+    <p>没找到匹配的 Agent</p>
+  </div>
+</main>
+
+<!-- 详情弹窗 -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <button class="modal-close" id="modalClose">&times;</button>
+    <div class="modal-header">
+      <h2 id="modalTitle"></h2>
+      <div class="modal-tags" id="modalTags"></div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3>简介</h3>
+        <p id="modalDesc"></p>
+      </div>
+      <div class="modal-section">
+        <h3>Prompt 预览</h3>
+        <pre id="modalPrompt"></pre>
+      </div>
+      <div class="modal-section">
+        <h3>使用说明</h3>
+        <div id="modalGuide"></div>
+      </div>
+    </div>
+    <div class="modal-footer modal-footer-row">
+      <a href="#" class="btn btn-primary" id="modalDownload" download>下载 Agent 包</a>
+      <button class="btn btn-secondary" id="modalTry">在线试用</button>
+    </div>
+  </div>
+</div>
+
+<!-- 聊天面板 -->
+<div class="chat-overlay" id="chatOverlay">
+  <div class="chat-panel">
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <span class="chat-avatar" id="chatAvatar"></span>
+        <div>
+          <h3 id="chatTitle"></h3>
+          <span class="chat-subtitle" id="chatSubtitle"></span>
+        </div>
+      </div>
+      <div class="chat-header-right">
+        <button class="chat-new-session" id="chatNewSession" title="新建对话">+ 新对话</button>
+        <button class="chat-close" id="chatClose">&times;</button>
+      </div>
+    </div>
+    <div class="chat-body" id="chatBody">
+      <div class="chat-welcome" id="chatWelcome"></div>
+    </div>
+    <div class="chat-footer">
+      <textarea id="chatInput" placeholder="输入你的数据或问题..." rows="2"></textarea>
+      <button class="btn-send" id="chatSend">&rarr;</button>
+    </div>
+  </div>
+</div>
+
+<section class="howto">
+  <div class="howto-content">
+    <h2>三步开始</h2>
+    <div class="howto-steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>选一个 Agent</h3>
+        <p>找到你需要的 Agent，点「在线试用」</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>输入数据</h3>
+        <p>把你要分析的数据粘贴进去</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>看结果</h3>
+        <p>AI 秒回分析结论，复制就能用</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <p>檀枫 AI 工具箱 &mdash; 专为电商卖家定制的 AI Agent 助手集</p>
+</footer>
+
+<script src="agents.js"></script>
+<script src="app.js"></script>
+<script>
+// === 鼠标跟随 aurora ===
+var hero = document.getElementById('heroSection');
+var glow = document.getElementById('heroGlow');
+if (hero && glow) {
+  hero.addEventListener('mousemove', function(e) {
+    var rect = hero.getBoundingClientRect();
+    var x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1);
+    var y = ((e.clientY - rect.top) / rect.height * 100).toFixed(1);
+    glow.style.setProperty('--mx', x + '%');
+    glow.style.setProperty('--my', y + '%');
+    glow.style.opacity = '1';
+  });
+  hero.addEventListener('mouseleave', function() {
+    glow.style.opacity = '0.3';
+    glow.style.setProperty('--mx', '50%');
+    glow.style.setProperty('--my', '50%');
+  });
+}
+
+// === 星空粒子 ===
+var starField = document.getElementById('starField');
+if (starField) {
+  var frag = document.createDocumentFragment();
+  for (var i = 0; i < 60; i++) {
+    var star = document.createElement('div');
+    star.className = 'star';
+    star.style.left = Math.random() * 100 + '%';
+    star.style.top = Math.random() * 100 + '%';
+    star.style.animationDelay = Math.random() * 6 + 's';
+    star.style.animationDuration = (3 + Math.random() * 5) + 's';
+    var size = 1 + Math.random() * 2;
+    star.style.width = size + 'px';
+    star.style.height = size + 'px';
+    frag.appendChild(star);
+  }
+  starField.appendChild(frag);
+}
+
+// === 滚动视差 ===
+var auroraBg = document.getElementById('auroraBg');
+if (auroraBg) {
+  window.addEventListener('scroll', function() {
+    var scrollY = window.scrollY;
+    auroraBg.style.transform = 'translateY(' + (scrollY * 0.3) + 'px)';
+  }, { passive: true });
+}
+</script>
+</body>
+</html>
