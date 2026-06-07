@@ -1,8 +1,0 @@
-{
-  "functions": {
-    "api/chat.py": {
-      "memory": 128,
-      "maxDuration": 30
-    }
-  }
-}
