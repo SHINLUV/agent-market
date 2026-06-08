@@ -140,7 +140,7 @@
   });
 
   function getFiltered(){
-    return AGENTS.filter(function(a){
+    var filtered = AGENTS.filter(function(a){
       var matchCat = activeCat === 'all' || a.category === activeCat;
       var q = searchQuery.toLowerCase();
       var matchSearch = !q ||
@@ -150,6 +150,19 @@
         a.category.toLowerCase().indexOf(q) !== -1;
       return matchCat && matchSearch;
     });
+
+    // 全部+无搜索时按热度排序
+    if (activeCat === 'all' && !searchQuery) {
+      var stats = {};
+      try { stats = JSON.parse(localStorage.getItem('tf_stats')) || {}; } catch(e) {}
+      filtered.sort(function(a, b) {
+        var totalA = (stats[a.name] && stats[a.name].total) || 0;
+        var totalB = (stats[b.name] && stats[b.name].total) || 0;
+        return totalB - totalA;
+      });
+    }
+
+    return filtered;
   }
 
   function render(){
@@ -227,8 +240,6 @@
     document.getElementById('modalPrompt').textContent = a.prompt;
     var guideDiv = document.getElementById('modalGuide');
     guideDiv.innerHTML = '<ol class="guide-list">' + a.guide.map(function(g){ return '<li>' + g + '</li>'; }).join('') + '</ol>';
-    var dl = document.getElementById('modalDownload');
-    dl.href = 'agents/' + a.zipName;
     modalOverlay.classList.add('active');
 
     document.getElementById('modalTry').onclick = function(){
@@ -357,5 +368,17 @@
   });
 
   if(countEl) countEl.textContent = AGENTS.length;
+
+  // 统计总使用次数
+  var usageEl = document.getElementById('usageCount');
+  if (usageEl) {
+    var totalUsage = 0;
+    try {
+      var statsData = JSON.parse(localStorage.getItem('tf_stats')) || {};
+      Object.values(statsData).forEach(function(s) { totalUsage += s.total || 0; });
+    } catch(e) {}
+    usageEl.textContent = totalUsage > 0 ? totalUsage + ' 次' : '—';
+  }
+
   render();
 })();
