@@ -57,6 +57,16 @@ def init_db():
             PRIMARY KEY (client_ip, trial_date)
         )
     """)
+    # 前端埋点事件表
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type TEXT NOT NULL,
+            agent_name TEXT,
+            client_ip TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
     conn.commit()
     conn.close()
     print(f"[DB] SQLite 数据库已就绪: {DB_PATH}")
@@ -67,6 +77,16 @@ def log_usage(agent_name, client_ip, user_input, reply_length, tokens):
     conn.execute(
         "INSERT INTO usage_log (agent_name, client_ip, user_input, reply_length, tokens) VALUES (?, ?, ?, ?, ?)",
         (agent_name, client_ip, user_input[:200], reply_length, tokens)
+    )
+    conn.commit()
+    conn.close()
+
+def log_event(event_type, agent_name, client_ip):
+    """记录一次前端埋点事件（详情查看、试用点击等）"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO events (event_type, agent_name, client_ip) VALUES (?, ?, ?)",
+        (event_type, agent_name, client_ip)
     )
     conn.commit()
     conn.close()
@@ -99,6 +119,8 @@ def get_stats():
     conn = sqlite3.connect(DB_PATH)
     # 总使用次数
     total = conn.execute("SELECT COUNT(*) FROM usage_log").fetchone()[0]
+    # 前端事件总数
+    total_events = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
     # 每个 Agent 的使用次数
     agent_stats = conn.execute("""
         SELECT agent_name, COUNT(*) as cnt, SUM(tokens) as total_tokens
@@ -108,20 +130,40 @@ def get_stats():
     today = conn.execute(
         "SELECT COUNT(*) FROM usage_log WHERE date(created_at) = date('now', 'localtime')"
     ).fetchone()[0]
+    # 今日事件数
+    today_events = conn.execute(
+        "SELECT COUNT(*) FROM events WHERE date(created_at) = date('now', 'localtime')"
+    ).fetchone()[0]
     # 不同 IP 数
     ips = conn.execute("SELECT COUNT(DISTINCT client_ip) FROM usage_log").fetchone()[0]
-    # 最近使用记录
+    # 最近使用记录（合并 chat 和 event）
     recent = conn.execute("""
-        SELECT agent_name, client_ip, tokens, created_at
-        FROM usage_log ORDER BY id DESC LIMIT 20
+        SELECT agent_name, client_ip, 'chat' as type, created_at
+        FROM usage_log
+        UNION ALL
+        SELECT agent_name, client_ip, event_type as type, created_at
+        FROM events
+        ORDER BY created_at DESC LIMIT 30
+    """).fetchall()
+    # 每日趋势（近14天）
+    daily_trend = conn.execute("""
+        SELECT date(created_at) as d, COUNT(*) as cnt
+        FROM (
+            SELECT created_at FROM usage_log
+            UNION ALL SELECT created_at FROM events
+        )
+        GROUP BY d ORDER BY d DESC LIMIT 14
     """).fetchall()
     conn.close()
     return {
         "total": total,
+        "total_events": total_events,
         "today": today,
+        "today_events": today_events,
         "unique_ips": ips,
         "agents": [{"name": n, "count": c, "tokens": t} for n, c, t in agent_stats],
-        "recent": [{"agent": r[0], "ip": r[1], "tokens": r[2], "time": r[3]} for r in recent]
+        "recent": [{"agent": r[0], "ip": r[1], "type": r[2], "time": r[3]} for r in recent],
+        "daily_trend": [{"date": d, "count": c} for d, c in daily_trend]
     }
 
 # ============================================================
@@ -207,6 +249,8 @@ class AgentHandler(SimpleHTTPRequestHandler):
             path = self.path.split("?")[0]
             if path == "/api/chat":
                 self._handle_chat()
+            elif path == "/api/event":
+                self._handle_event()
             else:
                 self.send_error(404)
         except Exception as e:
@@ -215,6 +259,26 @@ class AgentHandler(SimpleHTTPRequestHandler):
                 self._json(500, {"error": str(e)})
             except:
                 pass
+
+    def _handle_event(self):
+        """接收前端埋点事件"""
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length).decode("utf-8")
+            data = json.loads(body)
+        except:
+            self._json(400, {"error": "无效 JSON"})
+            return
+
+        event_type = data.get("type", "")
+        agent_name = data.get("agent", "")
+        if not event_type:
+            self._json(400, {"error": "缺少 type"})
+            return
+
+        ip = self.get_client_ip()
+        log_event(event_type, agent_name, ip)
+        self._json(200, {"ok": True})
 
     def _handle_chat(self):
         try:
@@ -328,7 +392,18 @@ class AgentHandler(SimpleHTTPRequestHandler):
             rows += f"<tr><td>{a['name']}</td><td>{a['count']}</td><td>{a['tokens']}</td></tr>"
         recent_rows = ""
         for r in stats["recent"]:
-            recent_rows += f"<tr><td>{r['time']}</td><td>{r['agent']}</td><td>{r['ip']}</td><td>{r['tokens']}</td></tr>"
+            type_label = {"chat": "对话", "detail": "查看", "try": "试用"}.get(r['type'], r['type'])
+            recent_rows += f"<tr><td>{r['time']}</td><td>{r['agent']}</td><td>{r['ip']}</td><td>{type_label}</td></tr>"
+
+        # 14天趋势行
+        trend_labels = ""
+        trend_values = ""
+        for d in stats["daily_trend"]:
+            trend_labels += f"<span style='writing-mode:vertical-lr;font-size:10px;color:#8a7aa0'>{d['date'][-5:]}</span>"
+            max_h = max(1, max(t["count"] for t in stats["daily_trend"]))
+            h_pct = d['count'] / max_h * 100 if max_h > 0 else 0
+            trend_values += f"<div style='flex:1;display:flex;align-items:flex-end;justify-content:center;padding:0 2px'><div style='width:100%;max-width:30px;height:{h_pct}%;min-height:4px;background:linear-gradient(180deg,#8B5CF6,#FF006E);border-radius:4px 4px 0 0;opacity:0.7' title='{d['date']}: {d['count']}次'></div></div>"
+        trend_chart = f"<div style='display:flex;align-items:flex-end;gap:0;height:120px;margin-bottom:8px'>{trend_values}</div><div style='display:flex;gap:0'>{trend_labels}</div>"
 
         html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -360,14 +435,17 @@ tr:hover td{{background:rgba(139,92,246,.05)}}
 <p class="sub">管理面板 · 数据实时更新 · <a href="/" style="color:#00F0FF">返回首页</a></p>
 <div class="cards">
 <div class="card"><div class="card-num">{stats['total']}</div><div class="card-label">总使用次数</div></div>
+<div class="card"><div class="card-num">{stats['total_events']}</div><div class="card-label">前端事件</div></div>
 <div class="card"><div class="card-num">{stats['today']}</div><div class="card-label">今日使用</div></div>
+<div class="card"><div class="card-num">{stats['today_events']}</div><div class="card-label">今日事件</div></div>
 <div class="card"><div class="card-num">{stats['unique_ips']}</div><div class="card-label">用户数（IP）</div></div>
-<div class="card"><div class="card-num">{TRIAL_LIMIT}</div><div class="card-label">每IP试用次数</div></div>
 </div>
 <h2>Agent 排行榜</h2>
 <table><tr><th>Agent</th><th>使用次数</th><th>消耗 Token</th></tr>{rows}</table>
-<h2>最近使用</h2>
-<table><tr><th>时间</th><th>Agent</th><th>IP</th><th>Token</th></tr>{recent_rows}</table>
+<h2>最近活动</h2>
+<table><tr><th>时间</th><th>Agent</th><th>IP</th><th>类型</th></tr>{recent_rows}</table>
+<h2>14天趋势</h2>
+{trend_chart}
 <div class="footer">檀枫 AI 工具箱 · 自动刷新 <span id="timer">60</span>s</div>
 <script>let t=60;setInterval(()=>{{t--;if(t<=0)location.reload();document.getElementById('timer').textContent=t}},1000)</script>
 </body>

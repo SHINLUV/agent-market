@@ -27,6 +27,9 @@
   var AGNES_URL = 'https://apihub.agnes-ai.com/v1/chat/completions';
 
   // ==================== 埋点统计 ====================
+  // 线上统计接口（Cloudflare Pages Function）
+  var STATS_URL = '/api/event';
+
   function trackClick(agentName, action) {
     var key = 'tf_stats';
     var data = {};
@@ -35,6 +38,15 @@
     data[agentName][action] = (data[agentName][action] || 0) + 1;
     data[agentName].total = (data[agentName].total || 0) + 1;
     localStorage.setItem(key, JSON.stringify(data));
+
+    // 同步到后端统计（静默失败，不阻塞用户）
+    try {
+      fetch(STATS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: action, agent: agentName })
+      }).catch(function(){});
+    } catch(e) {}
   }
 
   function getHotAgents(n) {
