@@ -12,3 +12,9 @@ agents/.playwright-cli/
 *.jpg
 api_test.txt
 hermes-handoff.md
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
