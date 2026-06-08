@@ -131,6 +131,8 @@ a:hover { color: #fff; }
   background: #fff;
   opacity: 0;
   animation: starPulse 4s ease-in-out infinite;
+  will-change: opacity, transform;
+  transform: translateZ(0);
 }
 @keyframes starPulse {
   0%, 100% { opacity: 0; transform: scale(0.5); }
@@ -685,6 +687,55 @@ a:hover { color: #fff; }
 .chat-welcome { text-align: center; color: var(--ink-secondary); padding: 30px 0; }
 .chat-welcome p { margin-bottom: 6px; font-size: 13px; }
 .chat-hint { color: var(--ink-muted); font-size: 12px; margin-top: 14px; }
+
+/* 示例按钮 */
+.btn-example {
+  display: inline-block;
+  padding: 8px 18px; border-radius: var(--radius-full);
+  border: 1px solid var(--cyan);
+  background: rgba(0, 240, 255, 0.08);
+  color: var(--cyan);
+  font-size: 12px; font-weight: 700; font-family: inherit;
+  cursor: pointer; margin-top: 12px;
+  transition: border-color 0.25s, background 0.25s, transform 0.25s var(--ease-spring), box-shadow 0.25s;
+}
+.btn-example:hover {
+  background: rgba(0, 240, 255, 0.15);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.15);
+  transform: translateY(-1px);
+}
+.btn-example:active { transform: scale(0.96); }
+
+/* 热门 Agent */
+.hot-section {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+  background: rgba(255, 160, 0, 0.06);
+  border: 1px solid rgba(255, 160, 0, 0.2);
+  border-radius: var(--radius);
+  margin-bottom: 4px;
+}
+.hot-label {
+  font-size: 12px; font-weight: 800; color: #ffb74d;
+  white-space: nowrap; letter-spacing: 0.05em;
+}
+.hot-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.hot-chip {
+  padding: 5px 14px; border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 160, 0, 0.25);
+  background: rgba(255, 160, 0, 0.08);
+  color: #ffb74d;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: border-color 0.25s, background 0.25s, transform 0.25s var(--ease-spring), box-shadow 0.25s;
+  white-space: nowrap;
+}
+.hot-chip:hover {
+  background: rgba(255, 160, 0, 0.16);
+  border-color: rgba(255, 160, 0, 0.45);
+  box-shadow: 0 0 12px rgba(255, 160, 0, 0.1);
+  transform: translateY(-1px);
+}
 
 .chat-msg { display: flex; max-width: 88%; }
 .chat-msg.user { align-self: flex-end; }

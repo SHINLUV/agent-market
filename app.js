@@ -26,6 +26,40 @@
   var AGNES_KEY = 'sk-j32i7VBnFAxhzssfDhdYvsiRPP4eABkw1OtfffgoTKErH5oB';
   var AGNES_URL = 'https://apihub.agnes-ai.com/v1/chat/completions';
 
+  // ==================== 埋点统计 ====================
+  function trackClick(agentName, action) {
+    var key = 'tf_stats';
+    var data = {};
+    try { data = JSON.parse(localStorage.getItem(key)) || {}; } catch(e) {}
+    if (!data[agentName]) data[agentName] = { try: 0, detail: 0, total: 0 };
+    data[agentName][action] = (data[agentName][action] || 0) + 1;
+    data[agentName].total = (data[agentName].total || 0) + 1;
+    localStorage.setItem(key, JSON.stringify(data));
+  }
+
+  function getHotAgents(n) {
+    var key = 'tf_stats';
+    var data = {};
+    try { data = JSON.parse(localStorage.getItem(key)) || {}; } catch(e) {}
+    var sorted = Object.entries(data).sort(function(a, b) { return b[1].total - a[1].total; });
+    return sorted.slice(0, n || 3).map(function(e) { return e[0]; });
+  }
+
+  // ==================== 示例展示 ====================
+  function showDemo(a) {
+    var msgs = chatBody.querySelectorAll('.chat-msg');
+    msgs.forEach(function(m){ m.remove(); });
+    chatWelcome.style.display = 'none';
+
+    if (a.exampleInput) {
+      addMessage('user', a.exampleInput);
+    }
+    if (a.exampleOutput) {
+      addMessage('bot', renderMarkdown(a.exampleOutput));
+    }
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+
   // ==================== Markdown 渲染 ====================
   function renderMarkdown(text) {
     if (!text) return '';
@@ -126,6 +160,29 @@
       return;
     }
     empty.style.display = 'none';
+
+    // 热门 Agent（全部+无搜索时显示）
+    if (activeCat === 'all' && !searchQuery) {
+      var hotNames = getHotAgents(3);
+      if (hotNames.length >= 2) {
+        var hotAgents = hotNames.map(function(n) { return AGENTS.find(function(a) { return a.name === n; }); }).filter(Boolean);
+        if (hotAgents.length >= 2) {
+          var hotSection = document.createElement('div');
+          hotSection.className = 'hot-section';
+          hotSection.innerHTML = '<div class="hot-label">🔥 热门</div><div class="hot-row"></div>';
+          var hotRow = hotSection.querySelector('.hot-row');
+          hotAgents.forEach(function(a) {
+            var chip = document.createElement('span');
+            chip.className = 'hot-chip';
+            chip.textContent = a.icon + ' ' + a.name;
+            chip.addEventListener('click', function() { openChat(a); });
+            hotRow.appendChild(chip);
+          });
+          grid.appendChild(hotSection);
+        }
+      }
+    }
+
     list.forEach(function(a){
       var card = document.createElement('div');
       card.className = 'card';
@@ -163,6 +220,7 @@
 
   // ==================== Modal ====================
   function showModal(a){
+    trackClick(a.name, 'detail');
     document.getElementById('modalTitle').textContent = a.name;
     document.getElementById('modalTags').innerHTML = a.tags.map(function(t){ return '<span>' + t + '</span>'; }).join('');
     document.getElementById('modalDesc').textContent = a.desc;
@@ -188,19 +246,29 @@
       currentSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     }
     currentAgent = a;
+    trackClick(a.name, 'try');
     chatTitle.textContent = a.name;
     chatSubtitle.textContent = '全部免费 · ' + a.category;
     chatAvatar.textContent = a.icon || '🤖';
 
     var msgs = chatBody.querySelectorAll('.chat-msg');
     msgs.forEach(function(m){ m.remove(); });
-    chatWelcome.innerHTML = '<p><strong>' + a.name + '</strong></p><p>' + a.desc + '</p><p class="chat-hint">把你要分析的数据粘贴到下面，按回车发送<br><small>支持多轮追问，AI 会记住上下文</small></p>';
+    var exampleBtn = (a.exampleInput && a.exampleOutput)
+      ? '<button class="btn-example" id="btnExample">✨ 查看示例：输入→AI回复</button>'
+      : '';
+    chatWelcome.innerHTML = '<p><strong>' + a.name + '</strong></p><p>' + a.desc + '</p>' + exampleBtn + '<p class="chat-hint">把你要分析的数据粘贴到下面，按回车发送<br><small>支持多轮追问，AI 会记住上下文</small></p>';
 
     chatWelcome.style.display = 'block';
 
     chatOverlay.classList.add('active');
     chatInput.value = '';
     chatInput.focus();
+
+    // 绑定示例按钮
+    var btnEx = document.getElementById('btnExample');
+    if (btnEx) {
+      btnEx.addEventListener('click', function() { showDemo(a); });
+    }
   }
 
   function sendMessage(){
